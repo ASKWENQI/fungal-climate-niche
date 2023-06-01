@@ -1,0 +1,56 @@
+
+### let's examine how species accumulates with increasing sampling number for the ABBY site regardless soil layers and sampling seasons.
+d1=sample_data(neon_dob)
+d1=data.frame(d1)
+d2=otu_table(neon_dob)# species composition at each site
+d2=data.frame(d2)
+abby=subset(d1,Site=="ABBY")# subsetting all the samples (i.e. observations) at the ABBY site.
+dim(abby)# with 119 samples and 24 variables
+abby_rown=data.frame(rownames(abby))# get the row names of each sample, which will be used to get the species comp. per sample.
+
+#### the following codes aim to get the species compo. for each sample.
+abby_site=list()
+for (i in 1:119){
+d3=subset(d2,rownames(d2)%in%abby_rown$rownames.abby.[i])##e.g. when i=1: the species compo. of the first abby sample
+d3[d3>0]=1# change the data into 0-1 data
+op=t(d3)
+op=data.frame(op)
+op=subset(op,op>0)# select the "1" cells to determine the number of species in a sample
+k=rownames(op)
+abby_site[[i]]=data.frame(paste(k,"_",op[,1]))# this step generates a species list like "sp1-1,sp2-1,sp3-1,sp4-1,sp5-1.......". This allows to determine the number of species when many sites are stacked.
+}
+
+# to see the number of species per sample
+a=numeric()
+for (i in 1:119){
+  a[i]=dim(abby_site[[i]])[1]
+}
+
+# stacking all samples,which generates a long column
+# for example, if sample A species comp. is ABCD,and sample B is CDEF, the stacked column would be ABCDCDEF with unique species being ABCDEF.
+qa=abby_site[[1]]
+for (i in 2:119){
+  qa=rbind(qa,abby_site[[i]])
+}
+
+# determine the number of species when different number of sampled are stacked. 
+rich=numeric()
+for (i in 1:119)
+{
+  rich[i]=length(unique(qa[1:sum(a[1:i]),]))# this step sequentially sample the 1,1-2,1-3,1-4,1-5....samples of the stacked long column and determines the number of unique species each time. 
+}
+
+# construct a data.frame for the ABBY site
+ex_abby=data.frame(1:119,rich)
+head(ex_abby)
+names(ex_abby)=c("A","richness")
+
+#model fitting
+result=nls(richness~c*A^z, data=ex_abby, start=list(z=5,c=5))# sometimes we need to change the start values of z and c
+summary(result)
+
+# plotting. The plot automatically gives the estimated values and model R2
+ggtrendline(ex_abby$A,ex_abby$richnes,model="power2P",linecolor="red")+
+  geom_point(aes(x=ex_abby$A,y=ex_abby$richness),color="black",pch=21,fill='white')+
+  xlab("Number of samples")+ylab("Number of species")
+# this is the codes for a single site, we can then write a loop for all the 113 sites.
